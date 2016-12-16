@@ -1,5 +1,12 @@
+//  TODO: 
+//  Enforce better variable scoping
+//  Add snake body
+//  Snake growing
+//  Score keeping and display
+
 // --------- CONSTANTS-------------
 var DEFAULT_WORM_SIZE = 20;
+var WORM_SPACING  = 10;
 var WORM_SPEED    = 5;
 var GAME_SPEED    = 400;
 var LEFT_BORDER   = 0;
@@ -7,17 +14,18 @@ var RIGHT_BORDER  = 800; // field width
 var TOP_BORDER    = 600; // field height
 var BOTTOM_BORDER = 0;
 
-// ---------------------------------
+
+// -------------  Utilities --------------------
 function reverse(num){
   return num * (-1);
 }
 
 function getRadians(vector){
-  return Math.atan2(vector.x, vector.y);
+  return Math.atan2(vector.getX(), vector.getY());
 }
 
 function getVector(radians){
-  return new Vector(Math.cos(radians), Math.sin(radians));
+  return new Position(Math.cos(radians), Math.sin(radians));
 }
 
 function reverseAngle(radians){
@@ -37,68 +45,133 @@ function compAngle(radians){
 }
 
 function addVectors(vect1, vect2){
-  return new Vector(vect1.x+vect2.x, vect1.y+vect2.y);
+  return new Position(vect1.getX()+vect2.getX(), vect1.getY()+vect2.getY());
 }
 
 function multVector(num, vect){
-  return new Vector(vect.x*num, vect.y*num);
+  return new Position(vect.getX()*num, vect.getY()*num);
 }
 
+// for efficiency one larger function may be faster.
 function getNewLoc(angle, speed, start){
+  //console.log("getNewLoc: a/s/p: "+angle+"/"+speed+"/"+start._x+":"+start._y);
   return addVectors(start, (multVector(speed,getVector(angle))));
 }
 
-// ---------  Classes --------------
-class Vector{
-  constructor(x = 0, y = 0) {
-    this.x = x;
-    this.y = y;
-  }
+
+// ------ Class objects -------------------
+
+// -------- Position --------------
+function Position(x,y){
+  this._x = x;
+  this._y = y;
 }
 
-class Circle {
-  constructor(radius=DEFAULT_WORM_SIZE, color='green', x = 200, y = 200){
-    this.radius = radius;
-    this.color = color;
-    this.coord = new Vector(x,y);
-    this.move = function(newVector){
-       this.coord = newVector;
-    }
+Position.prototype.debugPosition = function fpd(){
+   console.log("Position: "+this._x+":"+this._y);
+};
 
-    this.drawMe = function(context){
-      context.beginPath();
-      context.fillStyle = this.color;
-      context.arc(this.coord.x, this.coord.y, this.radius, 0,2 * Math.PI,false);
-      context.fill();
-      context.lineWidth = 5;
-      context.stroke();
-    }
-  }
+Position.prototype.getX = function fpgx(){
+   return this._x;
+};
+
+Position.prototype.getY = function fpgy(){
+   return this._y;
+};
+
+
+// ------- Circle ------------------
+function Circle(radius, color, x, y){
+    this._radius = radius;
+    this._color = color;
+    this._position = new Position(x,y);
 }
 
-class Worm {
-  constructor(){
-    this.head = new Circle(DEFAULT_WORM_SIZE, 'yellow');
-    this.speed = WORM_SPEED;
-    this.angle = getRadians(new Vector(Math.random(),Math.random()));
-    this.length = 6;
-    this.body = new Circle(DEFAULT_WORM_SIZE,'green',(this.head.coord.x) -15,(this.head.coord.y) -15);
-    this.grow = function(addition){
-      this.length += addition;
-    }
-    this.move = function(){
-      this.prevLoc = this.head.coord;
-      this.head.move(getNewLoc(this.angle, this.speed, this.head.coord));
-      this.body.move(this.prevLoc);
-    }
-    this.drawMe = function(context){
-      this.body.drawMe(context);
-      this.head.drawMe(context);
-    }
+Circle.prototype.getPosition = function cgp(){
+   return this._position;
+};
+
+Circle.prototype.move = function cmv(newPosition){
+  this._position = newPosition;
+};
+
+Circle.prototype.drawMe = function cdm(context){
+  //console.log(this._position.getX(), this._position.getY());
+  context.beginPath();
+  context.fillStyle = this._color;
+  context.arc(this._position.getX(), this._position.getY(), this._radius, 0, 2 * Math.PI, false);
+  context.fill();
+  context.lineWidth = 1;
+  context.stroke();
+};
+
+
+// ------------- Worm  ------------------
+function Worm(){
+  this._head = new Circle(DEFAULT_WORM_SIZE, 'yellow', 200, 200);
+  this._speed = WORM_SPEED;
+  this._angle = getRadians(new Position(Math.random()*3,Math.random()*4));
+  this._length = 16;
+  this._bodyList = new Array();
+  this._bodyList.push(this._head);
+  for(j = 1; j < this._length; j++){
+    let bodyLoc = getNewLoc(reverseAngle(this._angle), WORM_SPACING * j, this._head._position);
+    //console.log("Position "+j+" = "+bodyLoc.getX()+"/"+bodyLoc.getY());
+    let segment = new Circle(DEFAULT_WORM_SIZE,'green',bodyLoc.getX(),bodyLoc.getY());
+    this._bodyList.push(segment);
   }
+};
+
+Worm.prototype.getHead = function wgh(){
+  return this._head;
 }
 
-// ---------------- Begin Canvas Manipulation ------------------
+Worm.prototype.getHeadPosition = function wghp(){
+  return this._head._position;
+}
+
+// Maybe combine move/draw to reduce loops, if they loop in same direction....
+Worm.prototype.move = function wmv(){
+  let newLocation = getNewLoc(this._angle, this._speed, this._bodyList[0].getPosition());
+  let nextLocation;
+  for(i = 0; i < this._bodyList.length; i++){
+    nextLocation = this._bodyList[i].getPosition();
+    this._bodyList[i].move(newLocation);
+    newLocation = nextLocation;
+    //console.log("i = "+i+": "+this._bodyList[i].getPosition().getX()+
+      //" / "+this._bodyList[i].getPosition().getY() );
+  }
+  this._head = this._bodyList[0];
+  this.checkBorderCollision();
+};
+
+Worm.prototype.drawMe = function wdm(context){
+   for(i = (this._bodyList.length -1); i >= 0; i--){
+      //console.log("i = "+i+": "+this._bodyList[i].getPosition().getX()+
+       //" / "+this._bodyList[i].getPosition().getY() );
+      this._bodyList[i].drawMe(context);
+   }
+};
+
+Worm.prototype.checkBorderCollision = function wcb(){
+    if(this._head._position.getX() + this._head._radius >= RIGHT_BORDER  ||
+       this._head._position.getX() - this._head._radius <= BOTTOM_BORDER ||
+       this._head._position.getY() + this._head._radius >= TOP_BORDER    ||
+       this._head._position.getY() - this._head._radius <= LEFT_BORDER){
+       this._angle = compAngle(this._angle);
+    }
+};
+
+Worm.prototype.debugWorm = function wdw(){
+  console.log("--Worm speed: "+this._speed);
+  console.log("--Worm position: "+this.getHeadPosition().getX()+":"+this.getHeadPosition().getY());
+  console.log("--Worm angle: "+this._angle);
+  var loctn = new Position(getVector(this._angle));
+  console.log("--Worm vector: "+loctn.getX()+":"+loctn.getY());
+}
+
+
+// -------------- Begin Canvas Manipulation ------------------
 const canvas = document.getElementById('worms');
 const context = canvas.getContext('2d');
 
@@ -106,19 +179,6 @@ context.fillStyle = '#000';
 context.fillRect(0, 0, canvas.width, canvas.height);
 
 const worm = new Worm;
-console.log(worm.head);
-
-
-function checkBorderCollision(worm){
-    if(worm.head.coord.x >= RIGHT_BORDER ||
-       worm.head.coord.x <= BOTTOM_BORDER ||
-       worm.head.coord.y >= TOP_BORDER ||
-       worm.head.coord.y <= LEFT_BORDER){
-    worm.angle = compAngle(worm.angle);
-  }
-
-}
-
 let previousTime;
 
 function gameLoop(newTime){
@@ -129,14 +189,12 @@ function gameLoop(newTime){
   requestAnimationFrame(gameLoop);
 }
 
+// TODO: Integrate game timer delay
 function update(time){
   worm.move();
   context.fillStyle = '#000';
   context.fillRect(0, 0, canvas.width, canvas.height);
   worm.drawMe(context);
-  //console.log("Speed: "+worm.speed+ ", Angle: "+worm.angle+",  Location: "+worm.head.coord.x +":"+worm.head.coord.y);
-  checkBorderCollision(worm);
 }
 
 gameLoop();
-
