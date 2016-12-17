@@ -6,13 +6,14 @@
 
 // --------- CONSTANTS-------------
 var DEFAULT_WORM_SIZE = 20;
-var WORM_SPACING  = 10;
-var WORM_SPEED    = 5;
-var GAME_SPEED    = 400;
+var WORM_SPEED    = 10;
+var WORM_LENGTH   = 30;
+var WORM_UPDATE_SPEED = 20;
 var LEFT_BORDER   = 0;
 var RIGHT_BORDER  = 800; // field width
 var TOP_BORDER    = 600; // field height
 var BOTTOM_BORDER = 0;
+
 
 
 // -------------  Utilities --------------------
@@ -102,6 +103,7 @@ Circle.prototype.drawMe = function cdm(context){
   context.arc(this._position.getX(), this._position.getY(), this._radius, 0, 2 * Math.PI, false);
   context.fill();
   context.lineWidth = 1;
+  context.strokeStyle = '#009900'
   context.stroke();
 };
 
@@ -111,11 +113,11 @@ function Worm(){
   this._head = new Circle(DEFAULT_WORM_SIZE, 'yellow', 200, 200);
   this._speed = WORM_SPEED;
   this._angle = getRadians(new Position(Math.random()*3,Math.random()*4));
-  this._length = 16;
+  this._length = WORM_LENGTH;
   this._bodyList = new Array();
   this._bodyList.push(this._head);
   for(j = 1; j < this._length; j++){
-    let bodyLoc = getNewLoc(reverseAngle(this._angle), WORM_SPACING * j, this._head._position);
+    let bodyLoc = getNewLoc(reverseAngle(this._angle), WORM_SPEED * j, this._head._position);
     //console.log("Position "+j+" = "+bodyLoc.getX()+"/"+bodyLoc.getY());
     let segment = new Circle(DEFAULT_WORM_SIZE,'green',bodyLoc.getX(),bodyLoc.getY());
     this._bodyList.push(segment);
@@ -179,21 +181,23 @@ context.fillStyle = '#000';
 context.fillRect(0, 0, canvas.width, canvas.height);
 
 const worm = new Worm;
-let previousTime;
+let previousTime = 0;
 
+// move the timer to controll the call to worm.move
 function gameLoop(newTime){
-  if(previousTime) {
-    update(newTime - previousTime);
+  update(newTime - previousTime);
+  if((newTime - previousTime) >= WORM_UPDATE_SPEED) {
+      previousTime = newTime;
   }
-  previousTime = newTime;
   requestAnimationFrame(gameLoop);
 }
 
-// TODO: Integrate game timer delay
 function update(time){
-  worm.move();
   context.fillStyle = '#000';
   context.fillRect(0, 0, canvas.width, canvas.height);
+  if(time >= WORM_UPDATE_SPEED) {
+     worm.move();
+  }
   worm.drawMe(context);
 }
 
