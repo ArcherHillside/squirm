@@ -1,8 +1,21 @@
-//  TODO: 
-//  Enforce better variable scoping
-//  Add snake body
+//  TODO:  -> Not in order..
+//  Better variable scoping
 //  Snake growing
+//  Background patern
+//  Things to eat
+//  Keyboard controls
+//  Keep snake in center of screen and scroll background
+//  Scale snakes perspective to correlate with size
+//  Two players
+//  Snakes eating each other
+//  Network sockets and a server
+//  Better graphics
+//  Add acceleration
 //  Score keeping and display
+//  keep top 10 scores
+//  Add game start and pause
+
+
 
 // --------- CONSTANTS-------------
 var DEFAULT_WORM_SIZE = 20;
