@@ -1,12 +1,11 @@
 //  TODO:  -> Not in order..
-//  Better variable scoping
 //  Snake growing
 //  Background patern
 //  Things to eat
-//  Keyboard controls
+//  Make arrow keydown events take effect sooner
 //  Keep snake in center of screen and scroll background
 //  Scale snakes perspective to correlate with size
-//  Two players
+//  Multiple players
 //  Snakes eating each other
 //  Network sockets and a server
 //  Better graphics
@@ -18,14 +17,15 @@
 
 
 // --------- CONSTANTS-------------
-var DEFAULT_WORM_SIZE = 20;
-var WORM_SPEED    = 10;
-var WORM_LENGTH   = 30;
-var WORM_UPDATE_SPEED = 20;
-var LEFT_BORDER   = 0;
-var RIGHT_BORDER  = 800; // field width
-var TOP_BORDER    = 600; // field height
-var BOTTOM_BORDER = 0;
+const DEFAULT_WORM_SIZE = 12;
+const WORM_SPEED    = 8;
+const WORM_LENGTH   = 20;
+const WORM_UPDATE_SPEED = 25;
+const LEFT_BORDER   = 0;
+const RIGHT_BORDER  = 800; // field width
+const TOP_BORDER    = 600; // field height
+const BOTTOM_BORDER = 0;
+const TURN_SPEED    = .25;
 
 
 
@@ -72,6 +72,18 @@ function getNewLoc(angle, speed, start){
   return addVectors(start, (multVector(speed,getVector(angle))));
 }
 
+function getArrowKeyDirection (keyCode) {
+  return {
+    37: 'left',
+    39: 'right',
+    38: 'up',
+    40: 'down'
+  }[keyCode];
+}
+
+function isArrowKey (keyCode) {
+  return !!getArrowKeyDirection(keyCode);
+}
 
 // ------ Class objects -------------------
 
@@ -126,6 +138,7 @@ function Worm(){
   this._head = new Circle(DEFAULT_WORM_SIZE, 'yellow', 200, 200);
   this._speed = WORM_SPEED;
   this._angle = getRadians(new Position(Math.random()*3,Math.random()*4));
+  this._score = 0;
   this._length = WORM_LENGTH;
   this._bodyList = new Array();
   this._bodyList.push(this._head);
@@ -139,11 +152,19 @@ function Worm(){
 
 Worm.prototype.getHead = function wgh(){
   return this._head;
-}
+};
 
 Worm.prototype.getHeadPosition = function wghp(){
   return this._head._position;
-}
+};
+
+Worm.prototype.turnRight = function tr(){
+  this._angle += TURN_SPEED;
+};
+
+Worm.prototype.turnLeft = function tl(){
+    this._angle -= TURN_SPEED;
+};
 
 // Maybe combine move/draw to reduce loops, if they loop in same direction....
 Worm.prototype.move = function wmv(){
@@ -161,11 +182,11 @@ Worm.prototype.move = function wmv(){
 };
 
 Worm.prototype.drawMe = function wdm(context){
-   for(i = (this._bodyList.length -1); i >= 0; i--){
-      //console.log("i = "+i+": "+this._bodyList[i].getPosition().getX()+
-       //" / "+this._bodyList[i].getPosition().getY() );
-      this._bodyList[i].drawMe(context);
-   }
+  for(i = (this._bodyList.length -1); i >= 0; i--){
+     //console.log("i = "+i+": "+this._bodyList[i].getPosition().getX()+
+      //" / "+this._bodyList[i].getPosition().getY() );
+     this._bodyList[i].drawMe(context);
+  }
 };
 
 Worm.prototype.checkBorderCollision = function wcb(){
@@ -186,32 +207,72 @@ Worm.prototype.debugWorm = function wdw(){
 }
 
 
-// -------------- Begin Canvas Manipulation ------------------
-const canvas = document.getElementById('worms');
-const context = canvas.getContext('2d');
+// -------------- The main scope "WormGame" ------------------
 
-context.fillStyle = '#000';
-context.fillRect(0, 0, canvas.width, canvas.height);
+// Top-level object for game
+function WormGame(canvas){
+  this._canvas  = canvas;
+  this._context = canvas.getContext('2d');
+  this._previousTime = 0;
 
-const worm = new Worm;
-let previousTime = 0;
+  // keeping single worm constant around for future network-play
+  //this._worm = new Worm;
 
-// move the timer to controll the call to worm.move
-function gameLoop(newTime){
-  update(newTime - previousTime);
-  if((newTime - previousTime) >= WORM_UPDATE_SPEED) {
-      previousTime = newTime;
-  }
-  requestAnimationFrame(gameLoop);
+  // temporarily making multi-player version in one browser.
+  this._players = new Array();
+  this._players.push(new Worm());
+  this._players.push(new Worm());
+  this._players.push(new Worm());
+  this._players.push(new Worm());
+  this._players.push(new Worm());
+  this._players.push(new Worm());
+
+ 
+  const gameLoop = (newTime) => {
+    this.update(newTime - this._previousTime);
+    if((newTime - this._previousTime) >= WORM_UPDATE_SPEED) {
+      this._previousTime = newTime;
+    }
+    requestAnimationFrame(gameLoop);
+  };
+  gameLoop();
 }
 
-function update(time){
-  context.fillStyle = '#000';
-  context.fillRect(0, 0, canvas.width, canvas.height);
+WormGame.prototype.update = function update(time){
+  this._context.fillStyle = '#000';
+  this._context.fillRect(0, 0, this._canvas.width, this._canvas.height);
   if(time >= WORM_UPDATE_SPEED) {
-     worm.move();
+    for(it = 0; it < this._players.length; it++){
+       this._players[it].move();
+      }
+    //this._worm.move();
   }
-  worm.drawMe(context);
-}
+  //this._worm.drawMe(this._context);
+   for(k = 0; k < this._players.length; k++){
+     this._players[k].drawMe(this._context);
+   }
+};
 
-gameLoop();
+const canvas = document.getElementById('worms');
+
+//event listeners
+document.addEventListener('keydown', function(event) {
+ 
+  var direction;
+  if (isArrowKey(event.keyCode)) {
+    direction = getArrowKeyDirection(event.keyCode);
+  }
+  if (direction === "up"){
+    console.log("Accelerate");
+  }
+  else if (direction === "left"){
+    Worms._players[0].turnLeft();
+  }
+  else if (direction === "right") {
+    Worms._players[0].turnRight();
+  }
+});
+
+// Instantiate the game
+const Worms = new WormGame(canvas);
+
