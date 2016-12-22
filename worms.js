@@ -15,18 +15,17 @@
 //  Add game start and pause
 
 
-
 // --------- CONSTANTS-------------
-const DEFAULT_WORM_SIZE = 12;
-const WORM_SPEED    = 8;
-const WORM_LENGTH   = 20;
-const WORM_UPDATE_SPEED = 25;
+const STEP_INTERVAL = 10;   // milliseconds beween game steps
+const DRAW_INTERVAL = 100;  // milliseconds between screen refresh 
+const TURN_SPEED    = .25;
+const WORM_SPEED    = 3;     // pixels per step
+const DEFAULT_WORM_SIZE = 10;// head radius
+const WORM_LENGTH   = 25;    // starting segments -> refactor to use ratios
 const LEFT_BORDER   = 0;
 const RIGHT_BORDER  = 800; // field width
 const TOP_BORDER    = 600; // field height
 const BOTTOM_BORDER = 0;
-const TURN_SPEED    = .25;
-
 
 
 // -------------  Utilities --------------------
@@ -213,8 +212,6 @@ Worm.prototype.debugWorm = function wdw(){
 function WormGame(canvas){
   this._canvas  = canvas;
   this._context = canvas.getContext('2d');
-  this._previousTime = 0;
-
   // keeping single worm constant around for future network-play
   //this._worm = new Worm;
 
@@ -224,34 +221,40 @@ function WormGame(canvas){
   this._players.push(new Worm());
   this._players.push(new Worm());
   this._players.push(new Worm());
-  this._players.push(new Worm());
-  this._players.push(new Worm());
 
- 
+  let stepTimeCounter = 0;
+  //let refreshTimeCounter = 0;
+  let previousTime;
   const gameLoop = (newTime) => {
-    this.update(newTime - this._previousTime);
-    if((newTime - this._previousTime) >= WORM_UPDATE_SPEED) {
-      this._previousTime = newTime;
+    if(previousTime){
+      stepTimeCounter += (newTime - previousTime);
+      while(stepTimeCounter > STEP_INTERVAL){
+        this.update();
+        stepTimeCounter -= STEP_INTERVAL;
+      }
+      this.refreshScreen();
     }
+    previousTime = newTime;
     requestAnimationFrame(gameLoop);
   };
   gameLoop();
 }
 
-WormGame.prototype.update = function update(time){
-  this._context.fillStyle = '#000';
-  this._context.fillRect(0, 0, this._canvas.width, this._canvas.height);
-  if(time >= WORM_UPDATE_SPEED) {
+WormGame.prototype.update = function update(){
     for(it = 0; it < this._players.length; it++){
        this._players[it].move();
-      }
+    }
     //this._worm.move();
-  }
-  //this._worm.drawMe(this._context);
-   for(k = 0; k < this._players.length; k++){
+};
+
+WormGame.prototype.refreshScreen = function wrs(){
+  this._context.fillStyle = '#000';
+  this._context.fillRect(0, 0, this._canvas.width, this._canvas.height);
+  for(k = 0; k < this._players.length; k++){
      this._players[k].drawMe(this._context);
    }
-};
+}
+
 
 const canvas = document.getElementById('worms');
 
