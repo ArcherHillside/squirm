@@ -18,7 +18,7 @@
 // --------- CONSTANTS-------------
 const STEP_INTERVAL = 10;   // milliseconds beween game steps
 const DRAW_INTERVAL = 100;  // milliseconds between screen refresh 
-const TURN_SPEED    = .25;
+const TURN_SPEED    = .05;
 const WORM_SPEED    = 3;     // pixels per step
 const DEFAULT_WORM_SIZE = 10;// head radius
 const WORM_LENGTH   = 25;    // starting segments -> refactor to use ratios
@@ -27,6 +27,13 @@ const RIGHT_BORDER  = 800; // field width
 const TOP_BORDER    = 600; // field height
 const BOTTOM_BORDER = 0;
 
+// magic numbers
+//
+//    bitmap numbers for direction numbers, 2bits
+const KEY_DOWN_NOTHING =   0x0;
+const KEY_DOWN_LEFT =  	   0x1;
+const KEY_DOWN_RIGHT = 	   0x2;
+const KEY_DOWN_UPDATE =    0x4;
 
 // -------------  Utilities --------------------
 function reverse(num){
@@ -133,7 +140,10 @@ Circle.prototype.drawMe = function cdm(context){
 
 
 // ------------- Worm  ------------------
-function Worm(){
+function Worm(color){
+  if ( ! color )
+      color = 'green';
+  this._keystate = KEY_DOWN_NOTHING;
   this._head = new Circle(DEFAULT_WORM_SIZE, 'yellow', 200, 200);
   this._speed = WORM_SPEED;
   this._angle = getRadians(new Position(Math.random()*3,Math.random()*4));
@@ -144,7 +154,7 @@ function Worm(){
   for(j = 1; j < this._length; j++){
     let bodyLoc = getNewLoc(reverseAngle(this._angle), WORM_SPEED * j, this._head._position);
     //console.log("Position "+j+" = "+bodyLoc.getX()+"/"+bodyLoc.getY());
-    let segment = new Circle(DEFAULT_WORM_SIZE,'green',bodyLoc.getX(),bodyLoc.getY());
+    let segment = new Circle(DEFAULT_WORM_SIZE,color,bodyLoc.getX(),bodyLoc.getY());
     this._bodyList.push(segment);
   }
 };
@@ -158,15 +168,42 @@ Worm.prototype.getHeadPosition = function wghp(){
 };
 
 Worm.prototype.turnRight = function tr(){
-  this._angle += TURN_SPEED;
+  //  this._angle += TURN_SPEED;
+  //
+  // add condition to check for RIGHT keydown  
+  this._keystate &= ~KEY_DOWN_LEFT; // XXX - force the LEFT key off
+  this._keystate |= KEY_DOWN_RIGHT;
+  console.log( "turnRight => ["+ this._keystate +"]");
 };
 
 Worm.prototype.turnLeft = function tl(){
-    this._angle -= TURN_SPEED;
+  //  this._angle -= TURN_SPEED;
+  //
+  // add condition to check for RIGHT keydown  
+  this._keystate &= ~KEY_DOWN_RIGHT; // XXX - force the LEFT key off
+  this._keystate |= KEY_DOWN_LEFT;
+  console.log( "turnLeft => ["+ this._keystate +"]");
+};
+
+Worm.prototype.turnRightOff = function tr(){
+  this._keystate &= ~KEY_DOWN_RIGHT;
+  console.log( "turnRight-OFF => ["+ this._keystate +"]");
+};
+
+Worm.prototype.turnLeftOff = function tl(){
+  this._keystate &= ~KEY_DOWN_LEFT;
+  console.log( "turnLeft-OFF => ["+ this._keystate +"]");
 };
 
 // Maybe combine move/draw to reduce loops, if they loop in same direction....
 Worm.prototype.move = function wmv(){
+  // XXX - is this right?  or can the worm turn faster than it can move?
+  if (this._keystate & KEY_DOWN_RIGHT) {
+    this._angle += TURN_SPEED; // NOTE - turn right
+  } else if (this._keystate & KEY_DOWN_LEFT) {
+    this._angle -= TURN_SPEED; // NOTE - turn left
+  }
+  //--------------------------------------------------------------------------------
   let newLocation = getNewLoc(this._angle, this._speed, this._bodyList[0].getPosition());
   let nextLocation;
   for(i = 0; i < this._bodyList.length; i++){
@@ -205,7 +242,6 @@ Worm.prototype.debugWorm = function wdw(){
   console.log("--Worm vector: "+loctn.getX()+":"+loctn.getY());
 }
 
-
 // -------------- The main scope "WormGame" ------------------
 
 // Top-level object for game
@@ -217,7 +253,7 @@ function WormGame(canvas){
 
   // temporarily making multi-player version in one browser.
   this._players = new Array();
-  this._players.push(new Worm());
+  this._players.push(new Worm('red'));
   this._players.push(new Worm());
   this._players.push(new Worm());
   this._players.push(new Worm());
@@ -258,24 +294,58 @@ WormGame.prototype.refreshScreen = function wrs(){
 
 const canvas = document.getElementById('worms');
 
-//event listeners
+// event listeners
+
+const handlers_keydown = {
+    "up" : 	 function (e,w) { console.log("Accelerate"); },
+    "left" : 	 function (e,w) { w.turnLeft(); },
+    "right" : 	 function (e,w) { w.turnRight(); },
+};
+
 document.addEventListener('keydown', function(event) {
+  console.log( "keydown-listener");
  
   var direction;
   if (isArrowKey(event.keyCode)) {
     direction = getArrowKeyDirection(event.keyCode);
   }
-  if (direction === "up"){
-    console.log("Accelerate");
+  if ( !!direction ) {
+      let cb = handlers_keydown[ direction ];
+      if ( !!cb ) {
+	  cb( event, Worms._players[0]);
+      }
   }
-  else if (direction === "left"){
-    Worms._players[0].turnLeft();
+  //  if (direction === "up"){
+  //    console.log("Accelerate");
+  //  }
+  //  else if (direction === "left"){
+  //    Worms._players[0].turnLeft();
+  //  }
+  //  else if (direction === "right") {
+  //    Worms._players[0].turnRight();
+  //  }
+});
+
+const handlers_keyup = {
+    "up" : 	 function (e,w) { console.log("Accelerate STOP"); },
+    "left" : 	 function (e,w) { w.turnLeftOff(); },
+    "right" : 	 function (e,w) { w.turnRightOff(); },
+};
+
+document.addEventListener('keyup', function(event) {
+  console.log( "keyup-listener");
+ 
+  var direction;
+  if (isArrowKey(event.keyCode)) {
+    direction = getArrowKeyDirection(event.keyCode);
   }
-  else if (direction === "right") {
-    Worms._players[0].turnRight();
+  if ( !!direction ) {
+      let cb = handlers_keyup[ direction ];
+      if ( !!cb ) {
+	  cb( event, Worms._players[0]);
+      }
   }
 });
 
 // Instantiate the game
 const Worms = new WormGame(canvas);
-
