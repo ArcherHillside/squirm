@@ -19,7 +19,7 @@
 const STEP_INTERVAL = 10;   // milliseconds beween game steps
 const DRAW_INTERVAL = 100;  // milliseconds between screen refresh 
 const TURN_SPEED    = .25;
-const WORM_SPEED    = 3;     // pixels per step
+const WORM_SPEED    = 6;     // pixels per step
 const DEFAULT_WORM_SIZE = 10;// head radius
 const WORM_LENGTH   = 25;    // starting segments -> refactor to use ratios
 const LEFT_BORDER   = 0;
@@ -212,6 +212,12 @@ Worm.prototype.debugWorm = function wdw(){
 function WormGame(canvas){
   this._canvas  = canvas;
   this._context = canvas.getContext('2d');
+  this._bgImage = new Image();
+  this._bgImage.onLoad = function(){  };
+  this._bgImage.src = 'grey-background.png';
+  this._pattern = this._context.createPattern( this._bgImage, "repeat");
+  this._context.fileStyle = this._pattern;
+  this._context.fill();
   // keeping single worm constant around for future network-play
   //this._worm = new Worm;
 
@@ -248,7 +254,8 @@ WormGame.prototype.update = function update(){
 };
 
 WormGame.prototype.refreshScreen = function wrs(){
-  this._context.fillStyle = '#000';
+  //this._context.fillStyle = '#000';
+  this._context.fillStyle = this._pattern;
   this._context.fillRect(0, 0, this._canvas.width, this._canvas.height);
   for(k = 0; k < this._players.length; k++){
      this._players[k].drawMe(this._context);
