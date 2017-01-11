@@ -52,10 +52,12 @@ const WORMGAME_MENU =        0x10; // b0001,0000
 const WORMGAME_RUNNING =     0x20; // b0010,0000
 const WORMGAME_PAUSED =      0x30; // b0011,0000
 
-const WORM_MOVING_STRAIGHT = 0x01; // 3bits, b00000xxx
-const WORM_TURNING_LEFT =    0x02; // 3bits, b00000xxx
-const WORM_TURNING_RIGHT =   0x03; // 3bits, b00000xxx
-const WORM_BOOSTED =         0x40; // 1bit,  b0000x000
+const WORM_MASK_MOVE =       ~0x03; // 3bits, b00000xxx
+const WORM_MASK_BOOST =      ~0x40; // 1bit,  b0000x000
+const WORM_MOVING_STRAIGHT =  0x01; // 3bits, b00000xxx
+const WORM_TURNING_LEFT =     0x02; // 3bits, b00000xxx
+const WORM_TURNING_RIGHT =    0x03; // 3bits, b00000xxx
+const WORM_BOOSTED =          0x40; // 1bit,  b0000x000
 
 // DOM KeyboardEvent.keyCode
 const KEYCODE_LEFT =        37; // left arrow
@@ -68,10 +70,10 @@ const KEYCODE_ESC =         27;
 
 // XXX - DOM KeyboardEvent.key, experimental.  Based on deprecation of 'keyCode',
 // etc.  See https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key
-const KEY_LEFT =        'LeftArrow'; // left arrow
-const KEY_RIGHT =       'RightArrow'; // right arrow
-const KEY_UP =          'UpArrow'; // up arrow
-const KEY_DOWN =        'DownArrow'; // down arrow
+const KEY_LEFT =        'ArrowLeft'; // left arrow
+const KEY_RIGHT =       'ArrowRight'; // right arrow
+const KEY_UP =          'ArrowUp'; // up arrow
+const KEY_DOWN =        'ArrowDown'; // down arrow
 const KEY_SPACE =       ' ';
 const KEY_ENTER =       'Enter';
 const KEY_ESCAPE =      'Escape';
@@ -223,39 +225,42 @@ Worm.prototype.getHeadPosition = function (){
 };
 
 Worm.prototype.stopTurning = function (){
-     console.log( "Worm.stopTurning");
-    this._state = WORM_MOVING_STRAIGHT;
+     console.log( "Worm.stopTurning - state => ["+ this._state +"]");
+    this._state &= WORM_MASK_MOVE;
+    this._state |= WORM_MOVING_STRAIGHT;
 };
 
 Worm.prototype.turnLeft = function (){
-    console.log( "Worm.stopLeft");
-    this._state = WORM_TURN_LEFT;
+    console.log( "Worm.stopLeft - state => ["+ this._state +"]");
+    this._state &= WORM_MASK_MOVE;
+    this._state |= WORM_TURNING_LEFT;
 };
 
 Worm.prototype.turnRight = function (){
-    console.log( "Worm.stopRight");
-    this._state = WORM_TURN_RIGHT;
+    console.log( "Worm.stopRight - state => ["+ this._state +"]");
+    this._state &= WORM_MASK_MOVE;
+    this._state |= WORM_TURNING_RIGHT;
 };
 
 Worm.prototype.boostOn = function (){
-    console.log( "Worm.boostOn");
+    console.log( "Worm.boostOn - state => ["+ this._state +"]");
     this._state |= WORM_BOOSTED;
 };
 
 Worm.prototype.boostOff = function (){
-    console.log( "Worm.boostOff");
-    this._state &= WORM_BOOSTED;
+    console.log( "Worm.boostOff - state => ["+ this._state +"]");
+    this._state &= WORM_MASK_BOOST;
 };
 
 // Maybe combine move/draw to reduce loops, if they loop in same direction....
 Worm.prototype.move = function (){
     // XXX - is this right?  or can the worm turn faster than it can move?
-    if (WORM_TURNING_RIGHT === this._state) {
+    if (WORM_TURNING_RIGHT === (this._state & ~WORM_MASK_MOVE)) {
 	this._angle += TURN_SPEED; // NOTE - turn right
-    } else if (WORM_TURNING_LEFT === this._state) {
+    } else if (WORM_TURNING_LEFT === (this._state & ~WORM_MASK_MOVE)) {
 	this._angle -= TURN_SPEED; // NOTE - turn left
-    } else if (WORM_MOVING_STRAIGHT !== this._state) {
-	console.error( "Worm.move - invalid Worm state ["+ this._state +"]");
+    //  } else if (WORM_MOVING_STRAIGHT !== this._state) {
+    //  	console.error( "Worm.move - invalid Worm state ["+ this._state +"]");
     }
     //--------------------------------------------------------------------------------
     //  let newLocation = getNewLoc( this._angle, this._speed, this._bodyList[0].getPosition());
@@ -322,6 +327,7 @@ Worm.prototype.debugWorm = function (){
 
 // Top-level object for game
 function WormGame( count_human, count_machine){
+    var self = this;
     this._state =  WORMGAME_PAUSED;
     this._canvas = document.getElementById('worms');
     this._context = this._canvas.getContext('2d');
@@ -337,7 +343,6 @@ function WormGame( count_human, count_machine){
     // NOTE - we save these so that they can be deactivated in the (NIY) stop
     // function.  that will allow us to completely deactivate this 'app' when
     // multiple application modes are implemented.
-    var self = this;
     this._handlers = {'keydown' :  function (e) { self.handle_keydown(e); }, 
 		      'keyup' :    function (e) { self.handle_keyup(e); }
 		      // NOTE - I was wrong about the KEYPRESS event.  It is NOT
@@ -356,23 +361,97 @@ function WormGame( count_human, count_machine){
 
     // initialize keymap (with state)
     let KEYS = {};
-    {
-      for (let key of KEYS_ALPHABET)
-	  KEYS[key] = this.makeKeyEventStruct( key, null, null );
-      for (let key of KEYS_ALPHABET.toUpperCase())
-	  KEYS[key] = this.makeKeyEventStruct( key, null, null );
-      for (let key of KEYS_NUMERALS)
-	  KEYS[key] = this.makeKeyEventStruct( key, null, null );
-      for (let key of KEYS_SYMBOLS)
-	  KEYS[key] = this.makeKeyEventStruct( key, null, null );
-      for (let key of KEYS_SPECIAL)
-	  KEYS[key] = this.makeKeyEventStruct( key, null, null );
-      this._keys = KEYS;
-    }
+    for (let key of KEYS_ALPHABET)
+	KEYS[key] = this.makeKeyEventStruct( key, null, null );
+    for (let key of KEYS_ALPHABET.toUpperCase())
+	KEYS[key] = this.makeKeyEventStruct( key, null, null );
+    for (let key of KEYS_NUMERALS)
+	KEYS[key] = this.makeKeyEventStruct( key, null, null );
+    for (let key of KEYS_SYMBOLS)
+	KEYS[key] = this.makeKeyEventStruct( key, null, null );
+    for (let key of KEYS_SPECIAL)
+	KEYS[key] = this.makeKeyEventStruct( key, null, null );
+    this._keys = KEYS;
     KEYS[ KEY_SPACE ].up = function (e) { self.toggle_pause(); };
-    { let player = this._worms[0];
-	let players = [{ player : player,
-			 up : self.turnWormRight( play
+    // XXX - per player keymaps need to be refactored again
+    { let player_maps = [ { player :   this._worms[0],
+			    left :     [KEY_LEFT],   // NOTE - a set
+			    right :    [KEY_RIGHT],  // NOTE - a set
+			    boost :    [KEY_UP]      // NOTE - a set
+			  },
+			  { player :   this._worms[1],
+			    left :     ["Q", "q"], // NOTE - a set
+			    right :    ["W", "w"], // NOTE - a set
+			    boost :    ["T", "t"]  // NOTE - a set
+			  },
+			  { player :   this._worms[0],
+			    left :     ["A", "a"],  // NOTE - a set
+			    right :    ["D", "d"],  // NOTE - a set
+			    boost :    [KEY_ENTER]  // NOTE - a set
+			  }
+			];
+      for (let desc of player_maps) {
+	  let pl = desc.player;
+	  let map = { 'left' : { 'down' : function (e) { let key = self._keys[ e.key ];
+							 key.is_down = true;
+							 pl.turnLeft(); },
+				 'up' :   function (e) { let key = self._keys[ e.key ];
+							 key.is_down = false;
+							 let stopTurning = true;
+							 for (let k of desc.right) {
+							     let key = self._keys[ k ];
+							     if (key.is_down) {
+								 stopTurning = false;
+								 break;
+							     }
+							 }
+							 if (stopTurning)
+							     pl.stopTurning();
+							 else
+							     pl.turnRight();
+						       }
+			       },
+	  	      'right' : { 'down' : function (e) { let key = self._keys[ e.key ];
+							  key.is_down = true;
+							  pl.turnRight(); },
+				  'up' : function (e) { let key = self._keys[ e.key ];
+							key.is_down = false;
+							let stopTurning = true;
+							for (let k of desc.left) {
+							    let key = self._keys[ k ];
+							    if (key.is_down) {
+								stopTurning = false;
+								break;
+							    }
+							}
+							if (stopTurning)
+							    pl.stopTurning();
+							else
+							    pl.turnLeft();
+						      }
+				},
+		      'boost' : { 'down' : function (e) { pl.boostOn(); },
+	  			  'up' :   function (e) { pl.boostOff(); }
+				}
+		    };
+	  for (let kv1 in map) {
+	      for (let kv2 of desc[kv1]) {
+		  //  let a = KEYS[kv2];
+		  //  let b = map[kv1];
+		  for (let x of ['down','up']) {
+		      console.info( "kv1 => ["+ kv1 +"]; kv2 => ["+ kv2 +"]; x => ["+ x +"]");
+		      if (!!KEYS[kv2][x]) {
+			  console.error( "WormGame.WormGame - key ["+ kv2 +"] ["+ x +"] is already registered; aborting");
+			  return;
+		      } else {
+			  KEYS[kv2][x] = map[kv1][x];
+			  //  a[x] = b[x];
+		      }
+		  }
+	      }
+	  }
+      }
+    }
 
     // XXX - this change is a design decision.  the commented loop allows the
     // game to 'catch up' when the clock falls behind.  however, this is not
@@ -435,17 +514,22 @@ WormGame.prototype.handle_keydown = function(e) {
     console.log( "WormGame.handle_keydown - e.key => ["+ e.key +"]; e.keyCode => ["+ e.keyCode +"]" );
     let key = this._keys[ e.key ];
     key.is_down = true;
+    let cb = key.down;
+    if (!!cb)
+	cb( e);
+    else
+	console.info( "WormGame.handle_keydown - no handler registered for key => ["+ e.key +"]" );
 };
 
 WormGame.prototype.handle_keyup = function(e) {
-    console.log( "WormGame.handle_keyup - e.key => ["+ e.key +"]" );
+    console.log( "WormGame.handle_keyup - e.key => ["+ e.key +"]; e.keyCode => ["+ e.keyCode +"]" );
     let key = this._keys[ e.key ];
     key.is_down = false;
     let cb = key.up;
     if (!!cb)
 	cb( e);
     else
-	console.notify( "WormGame.handle_keyup - no keyup handler registered for key => ["+ e.key +"]" );
+	console.info( "WormGame.handle_keyup - no handler registered for key => ["+ e.key +"]" );
     
     //  if (KEYCODE_SPACE === e.keyCode) {
     //  	console.log( "WormGame.handle_keyup - SPACE" );
