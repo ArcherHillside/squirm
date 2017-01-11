@@ -255,12 +255,13 @@ Worm.prototype.boostOff = function (){
 // Maybe combine move/draw to reduce loops, if they loop in same direction....
 Worm.prototype.move = function (){
     // XXX - is this right?  or can the worm turn faster than it can move?
-    if (WORM_TURNING_RIGHT === (this._state & ~WORM_MASK_MOVE)) {
+    let state = this._state & ~WORM_MASK_MOVE;
+    if (WORM_TURNING_RIGHT === state) {
 	this._angle += TURN_SPEED; // NOTE - turn right
-    } else if (WORM_TURNING_LEFT === (this._state & ~WORM_MASK_MOVE)) {
+    } else if (WORM_TURNING_LEFT === state) {
 	this._angle -= TURN_SPEED; // NOTE - turn left
-    //  } else if (WORM_MOVING_STRAIGHT !== this._state) {
-    //  	console.error( "Worm.move - invalid Worm state ["+ this._state +"]");
+    } else if (WORM_MOVING_STRAIGHT !== state) {
+      	console.error( "Worm.move - invalid Worm state ["+ state +"]");
     }
     //--------------------------------------------------------------------------------
     //  let newLocation = getNewLoc( this._angle, this._speed, this._bodyList[0].getPosition());
