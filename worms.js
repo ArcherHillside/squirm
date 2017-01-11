@@ -7,13 +7,13 @@
 //  Snakes eating each other
 //  Network sockets and a server
 //  Better graphics
-//  Add acceleration
 //  Score keeping and display
 //  keep top 10 scores
-//  Add game start
 //  Make arrow keydown events take effect sooner
-//  Multiple players
-//  Add pause
+//  DONE - Add game start
+//  DONE - Add acceleration
+//  DONE - Multiple players
+//  DONE - Add pause
 
 
 // --------- CONSTANTS-------------
